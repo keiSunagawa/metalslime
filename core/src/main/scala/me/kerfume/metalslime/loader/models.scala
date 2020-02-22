@@ -8,9 +8,18 @@ case class SelectorList(
 ) {}
 
 object SelectorList {
-  case class LineRange(strat: Int, end: Int) {
+  trait LineRange {
+    def start: Int
+    def end: Int
+
     def isInner(rhs: LineRange): Boolean = {
-      this.strat <= rhs.strat && this.end >= rhs.end
+      this.start <= rhs.start && this.end >= rhs.end
     }
+  }
+  case class PureLineRange(start: Int, end: Int) extends LineRange
+  case class MetalsLineRange(pos: scala.meta.Position) extends LineRange {
+    // metalsnの行判定が0 started?なので+1する
+    def start: Int = pos.startLine + 1
+    def end: Int = pos.endLine + 1
   }
 }

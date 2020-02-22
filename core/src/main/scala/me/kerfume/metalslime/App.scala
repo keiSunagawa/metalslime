@@ -6,10 +6,14 @@ object App {
   def run(workspace: String): Unit = {
     val loader = new PatchLoader(workspace)
     val list = loader.stub()
-    list.foreach { x =>
+    val posList = list.flatMap { x =>
       val res = loader.loadFile(x)
       val find = loader.wark(res, x)
-      println(find)
+      find.map { x -> _ }
     }
+    // posListから依存一覧の取得
+    // didOpenリクエストの作成
+    // difinetionリクエストの作成
+    ???
   }
 }

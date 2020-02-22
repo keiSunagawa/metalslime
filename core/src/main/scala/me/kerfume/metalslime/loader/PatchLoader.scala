@@ -1,6 +1,6 @@
 package me.kerfume.metalslime.loader
 
-import SelectorList.LineRange
+import SelectorList._
 import scala.meta._
 
 class PatchLoader(workspace: String) {
@@ -9,7 +9,7 @@ class PatchLoader(workspace: String) {
       SelectorList(
         // TODO ignore project root dir
         "infra/src/main/scala/me/kerfume/infra/impl/domain/seqid/SeqIDRepositoryRpc.scala",
-        LineRange(8, 8)
+        PureLineRange(8, 8)
       )
     )
   }
@@ -25,12 +25,12 @@ class PatchLoader(workspace: String) {
     vf.parse[Source].get
   }
 
-  def wark(tree: Tree, selector: SelectorList) = {
-    var mostMatch: Option[LineRange] = None
+  def wark(tree: Tree, selector: SelectorList): Option[MetalsLineRange] = {
+    var mostMatch: Option[MetalsLineRange] = None
     tree.collect {
       case d: Defn =>
-        // 0 started?なので+1する
-        val range = LineRange(d.pos.startLine + 1, d.pos.endLine + 1)
+        // metalsnの行判定が0 started?なので+1する
+        val range = MetalsLineRange(d.pos)
         mostMatch match {
           case None =>
             if (range.isInner(selector.lineRange)) {
