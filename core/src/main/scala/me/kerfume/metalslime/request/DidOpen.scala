@@ -1,0 +1,23 @@
+package me.kerfume.metalslime.request
+
+import org.eclipse.lsp4j._
+import scala.collection.JavaConverters._
+
+object DidOpen {
+  def request(
+      workspace: String,
+      path: String,
+      content: String
+  ): DidOpenTextDocumentParams = {
+    val td = new DidOpenTextDocumentParams()
+    val tdRow = new TextDocumentItem()
+    tdRow.setUri(
+      s"file://${workspace}/${path}"
+    )
+    tdRow.setLanguageId("scala")
+    tdRow.setVersion(0)
+    tdRow.setText(content)
+    td.setTextDocument(tdRow)
+    td
+  }
+}
