@@ -1,0 +1,268 @@
+diff --git a/reminder-backend/infra/src/main/scala/me/kerfume/infra/impl/domain/seqid/SeqIDRepositoryRpc.scala b/reminder-backend/infra/src/main/scala/me/kerfume/infra/impl/domain/seqid/SeqIDRepositoryRpc.scala
+index ef2c94b..f5d11fd 100644
+--- a/reminder-backend/infra/src/main/scala/me/kerfume/infra/impl/domain/seqid/SeqIDRepositoryRpc.scala
++++ b/reminder-backend/infra/src/main/scala/me/kerfume/infra/impl/domain/seqid/SeqIDRepositoryRpc.scala
+@@ -4 +4 @@ import cats.effect.IO
+-import me.kerfume.infra.impl.domain.remind.RemindRepositoryRpc
++import me.kerfume.reminder.domain.remind.RemindRepository
+@@ -8 +8 @@ class SeqIDRepositoryRpc(
+-    reminderRepository: RemindRepositoryRpc
++    reminderRepository: RemindRepository[IO]
+diff --git a/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/AppConfig.scala b/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/AppConfig.scala
+index 0f9f76f..007ae5a 100644
+--- a/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/AppConfig.scala
++++ b/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/AppConfig.scala
+@@ -2,0 +3 @@ package me.kerfume.reminder.server
++import me.kerfume.reminder.server.AppConfig.Env
+@@ -5,0 +7 @@ trait AppConfig {
++  def env: Env
+@@ -6,0 +9 @@ trait AppConfig {
++  def launchPort: Int
+@@ -22 +25,3 @@ class ProdAppConfig extends TypeSafeAppConfig {
+-  lazy val configFileEnv = "prod"
++  val env: Env = Env.Prod
++  val configFileEnv = "prod"
++  val launchPort: Int = 8080
+@@ -26 +31,3 @@ class LocalAppConfig extends TypeSafeAppConfig {
+-  lazy val configFileEnv = "local"
++  val env: Env = Env.Local
++  val configFileEnv = "local"
++  val launchPort: Int = 9999
+diff --git a/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/Application.scala b/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/Application.scala
+index e81b68d..84fb8cf 100644
+--- a/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/Application.scala
++++ b/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/Application.scala
+@@ -6 +6,6 @@ import me.kerfume.reminder.server.controller.RegistController
+-import me.kerfume.reminder.domain.remind.{Remind, RemindService}
++import me.kerfume.reminder.domain.remind.{
++  Remind,
++  RemindRepository,
++  RemindRepositoryInMemory,
++  RemindService
++}
+@@ -12,0 +18 @@ import me.kerfume.reminder.domain.seqid.{
++import me.kerfume.reminder.server.AppConfig.Env
+@@ -15,2 +21,9 @@ class Application(config: AppConfig) {
+-  val remindRepository = new RemindRepositoryRpc(config.rpcEndpoint)
+-  val seqIDRepository = new SeqIDRepositoryRpc(remindRepository)
++  val remindRepository = config.env match {
++    case Env.Prod => new RemindRepositoryRpc(config.rpcEndpoint)
++    case _        => new IOWrapper.RemindRepositoryIOWrapper
++  }
++  val seqIDRepository = config.env match {
++    case Env.Prod => new SeqIDRepositoryRpc(remindRepository)
++    case _        => new IOWrapper.SeqIDRepositoryIOWrapper
++  }
++
+@@ -27,0 +41,8 @@ object IOWrapper {
++  class RemindRepositoryIOWrapper extends RemindRepository[IO] {
++    private val internal = new RemindRepositoryInMemory
++
++    override def findAll(): IO[List[Remind]] = IO { internal.findAll() }
++
++    override def store(remind: Remind): IO[Unit] = IO { internal.store(remind) }
++  }
++
+diff --git a/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/EndPoints.scala b/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/EndPoints.scala
+index 814094c..7f77bc5 100644
+--- a/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/EndPoints.scala
++++ b/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/EndPoints.scala
+@@ -2,0 +3 @@ package me.kerfume.reminder.server
++import me.kerfume.reminder.domain.remind.Remind
+@@ -30 +31 @@ object EndPoints {
+-  val list: Endpoint[Unit, Unit, String, Nothing] =
++  val list: Endpoint[Unit, Unit, ListResponse, Nothing] =
+@@ -33 +34 @@ object EndPoints {
+-      .out(htmlBodyUtf8)
++      .out(jsonBody[ListResponse])
+diff --git a/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/Server.scala b/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/Server.scala
+index 1101cc0..52c8dd0 100644
+--- a/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/Server.scala
++++ b/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/Server.scala
+@@ -9,0 +10 @@ import me.kerfume.reminder.server.controller.RegistController
++import org.http4s.server.middleware.{CORS, CORSConfig}
+@@ -49,0 +51,8 @@ object ReminderServer extends IOApp {
++    import scala.concurrent.duration._
++    val originConfig = CORSConfig(
++      anyOrigin = true,
++      allowCredentials = true,
++      maxAge = 1.day.toSeconds
++    )
++    // With Middlewares in place
++    val finalHttpApp = CORS(reminderApp(app.registController), originConfig)
+@@ -51,2 +60,2 @@ object ReminderServer extends IOApp {
+-      .bindHttp(8080, "0.0.0.0")
+-      .withHttpApp(reminderApp(app.registController))
++      .bindHttp(config.launchPort, "0.0.0.0")
++      .withHttpApp(finalHttpApp)
+diff --git a/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/controller/RegistController.scala b/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/controller/RegistController.scala
+index f206a6e..fbbd20a 100644
+--- a/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/controller/RegistController.scala
++++ b/reminder-backend/server/src/main/scala/me/kerfume/reminder/server/controller/RegistController.scala
+@@ -4,0 +5,2 @@ import java.time.LocalDate
++import java.time.format.DateTimeFormatter
++
+@@ -10,0 +13 @@ import cats.instances.either._
++import scala.util.chaining._
+@@ -27,18 +30,8 @@ class RegistController[F[_]: Monad](
+-  def list(): F[Either[Unit, String]] = {
+-    import scalatags.Text.all._
+-    service.list().map { xs =>
+-      val ofDates = xs.collect {
+-        case r: Remind.OfDate =>
+-          r
+-      }
+-
+-      html(
+-        body(
+-          h1("Reminds"),
+-          ul(
+-            ofDates.map { r =>
+-              li(
+-                s"${r.seqID.num} ${r.title} ${r.trigger}",
+-                a(href := s"/resolve/${r.seqID.num}")(b("resolve"))
+-              )
+-            }: _*
++  def list(): F[Either[Unit, ListResponse]] = {
++    service.list().map {
++      _.map {
++        case x: Remind.OfDate =>
++          RemindModelForView(
++            x.base.seqID.num,
++            x.base.title,
++            dateFormatter.format(x.trigger)
+@@ -46,2 +39,7 @@ class RegistController[F[_]: Monad](
+-        )
+-      ).toString.asRight
++        case x: Remind.OfDateTime =>
++          RemindModelForView(
++            x.base.seqID.num,
++            x.base.title,
++            dateFormatter.format(x.trigger)
++          )
++      }.pipe(ListResponse).asRight
+@@ -62,0 +61,10 @@ object RegistController {
++
++  val dateFormatter = DateTimeFormatter.ofPattern("uuuu/MM/dd")
++  case class RemindModelForView(
++      id: Long,
++      title: String,
++      limit: String
++  )
++  case class ListResponse(
++      values: List[RemindModelForView]
++  )
+diff --git a/reminder-frontend/package-lock.json b/reminder-frontend/package-lock.json
+index 5537de2..3dce5d9 100644
+--- a/reminder-frontend/package-lock.json
++++ b/reminder-frontend/package-lock.json
+@@ -6187,0 +6188,5 @@
++    "xhr2": {
++      "version": "0.2.0",
++      "resolved": "https://registry.npmjs.org/xhr2/-/xhr2-0.2.0.tgz",
++      "integrity": "sha512-BDtiD0i2iKPK/S8OAZfpk6tyzEDnKKSjxWHcMBVmh+LuqJ8A32qXTyOx+TVOg2dKvq6zGBq2sgKPkEeRs1qTRA=="
++    },
+diff --git a/reminder-frontend/package.json b/reminder-frontend/package.json
+index 5955f7f..ddd1186 100644
+--- a/reminder-frontend/package.json
++++ b/reminder-frontend/package.json
+@@ -28 +28,2 @@
+-    "webpack-cli": "^3.3.10"
++    "webpack-cli": "^3.3.10",
++    "xhr2": "^0.2.0"
+diff --git a/reminder-frontend/spago.dhall b/reminder-frontend/spago.dhall
+index 872f3b7..5a50050 100644
+--- a/reminder-frontend/spago.dhall
++++ b/reminder-frontend/spago.dhall
+@@ -8 +8 @@ You can edit this file as you like.
+-    [ "console", "effect", "halogen", "psci-support", "kerfume-pure-std", "aff", "random", "exceptions" ]
++    [ "console", "effect", "halogen", "psci-support", "kerfume-pure-std", "aff", "random", "exceptions", "affjax", "foreign-generic" ]
+diff --git a/reminder-frontend/src/App/Endpoint.js b/reminder-frontend/src/App/Endpoint.js
+new file mode 100644
+index 0000000..abf558c
+--- /dev/null
++++ b/reminder-frontend/src/App/Endpoint.js
+@@ -0,0 +1,5 @@
++"use strict";
++
++// module Endpoint
++
++exports.apiEndpoint = endpoint.api
+diff --git a/reminder-frontend/src/App/Endpoint.purs b/reminder-frontend/src/App/Endpoint.purs
+new file mode 100644
+index 0000000..e1291b0
+--- /dev/null
++++ b/reminder-frontend/src/App/Endpoint.purs
+@@ -0,0 +1,5 @@
++module Endpoint
++       ( apiEndpoint
++       )where
++
++foreign import apiEndpoint :: String
+diff --git a/reminder-frontend/src/App/Impure.purs b/reminder-frontend/src/App/Impure.purs
+index f035392..48c62ba 100644
+--- a/reminder-frontend/src/App/Impure.purs
++++ b/reminder-frontend/src/App/Impure.purs
+@@ -5,0 +6,2 @@ module App.Impure
++import Control.Monad.Except
++import Domain.Reminder
+@@ -10 +11,0 @@ import Kerfume.Prelude
+-import Domain.Reminder
+@@ -11,0 +13,6 @@ import Domain.Reminder
++import Affjax as AX
++import Affjax.ResponseFormat as ResponseFormat
++import Data.Bifunctor (lmap)
++import Data.Generic.Rep (class Generic)
++import Data.Generic.Rep.Show (genericShow)
++import Data.HTTP.Method (Method(..))
+@@ -13,0 +21,2 @@ import Effect.Random (randomInt)
++import Endpoint (apiEndpoint)
++import Foreign.Generic (defaultOptions, genericDecodeJSON)
+@@ -20,0 +30,3 @@ resolveRemind id = do
++-- fetchReminds :: Aff Reminds
++-- fetchReminds = pure $ {id: 1, title: "a", limit: "12:00"} : {id: 2, title: "bb", limit: "15:00"} : Nil
++
+@@ -22 +34,27 @@ fetchReminds :: Aff Reminds
+-fetchReminds = pure $ {id: 1, title: "a", limit: "12:00"} : {id: 2, title: "bb", limit: "15:00"} : Nil
++fetchReminds = do
++  xs <- getList
++  pure $ fromFoldable $ unwrap xs
++
++newtype RemindJson = RemindJson { values :: Array Remind }
++derive instance genericMyRecord :: Generic RemindJson _
++instance showMyRecord :: Show RemindJson where show = genericShow
++unwrap :: RemindJson -> Array Remind
++unwrap (RemindJson x) = x.values
++
++getList :: Aff (RemindJson)
++getList = do
++  res <- req
++  case (getBody res) of
++    Left e -> throwError e
++    Right xs -> pure xs
++  where
++    req = AX.request AX.defaultRequest { url = apiEndpoint
++                              , method = Left GET
++                              , responseFormat = ResponseFormat.string
++                              }
++    getBody :: Either AX.Error (AX.Response String) -> Either Error (RemindJson)
++    getBody (Right res) = lmap raise decode0
++      where
++        decode0  = runExcept $ (genericDecodeJSON (defaultOptions { unwrapSingleConstructors = true }) res.body :: _ RemindJson)
++        raise e = error "decode failed." -- TODO detail error
++    getBody (Left e) = throwError $ error $ AX.printError e
+diff --git a/reminder-frontend/static/index.html b/reminder-frontend/static/index.html
+index e197ab2..d338411 100644
+--- a/reminder-frontend/static/index.html
++++ b/reminder-frontend/static/index.html
+@@ -7,0 +8 @@
++    <script src="/settings.js"></script>
+diff --git a/reminder-frontend/static/settings.js b/reminder-frontend/static/settings.js
+new file mode 100644
+index 0000000..9bdc188
+--- /dev/null
++++ b/reminder-frontend/static/settings.js
+@@ -0,0 +1,3 @@
++var endpoint = {
++  api: "http://localhost:9999/list"
++}
