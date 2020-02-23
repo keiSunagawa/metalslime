@@ -1,4 +1,4 @@
-package me.kerfume.metalslime.request
+package me.kerfume.metalslime.server.impl.request
 
 import org.eclipse.lsp4j._
 import scala.collection.JavaConverters._

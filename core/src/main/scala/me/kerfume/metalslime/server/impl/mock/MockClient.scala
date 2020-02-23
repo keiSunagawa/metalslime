@@ -1,4 +1,4 @@
-package me.kerfume.metalslime.mock
+package me.kerfume.metalslime.server.impl.mock
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentLinkedDeque

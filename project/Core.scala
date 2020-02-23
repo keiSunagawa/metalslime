@@ -9,7 +9,8 @@ object Core {
       name := "metalslime-core",
       scalacOptions ++= Base.commonScalaOptions,
       libraryDependencies ++= Base.commonLibs ++ Seq(
-        "org.scalameta" %% "metals" % "0.8.0"
+        "org.scalameta" %% "metals" % "0.8.0",
+        "org.typelevel" %% "cats-effect" % "2.1.1"
       )
     )
 }

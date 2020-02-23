@@ -1,4 +1,4 @@
-package me.kerfume.metalslime.request
+package me.kerfume.metalslime.server.impl.request
 
 import org.eclipse.lsp4j._
 import scala.collection.JavaConverters._
@@ -16,8 +16,11 @@ object Initialize {
       workspaceEdit.setResourceOperations(
         List("create", "rename", "delete").asJava
       )
-      // skip didChangeWatchedFiles
       ws.setWorkspaceEdit(workspaceEdit)
+
+      val watchFiles = new DidChangeWatchedFilesCapabilities()
+      watchFiles.setDynamicRegistration(true)
+      ws.setDidChangeWatchedFiles(watchFiles)
 
       val sym = new SymbolCapabilities()
       val symK = new SymbolKindCapabilities()
