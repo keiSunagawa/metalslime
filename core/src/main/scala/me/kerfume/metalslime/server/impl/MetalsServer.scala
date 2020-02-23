@@ -69,6 +69,13 @@ class MetalsServer(val workspace: String) extends MetalsServerAdapter {
     underliyng.shutdown().get()
   }
 
+  def compile(): Unit = {
+    val cmd = new ExecuteCommandParams()
+    cmd.setCommand("metals.compile-cascade")
+    underliyng.executeCommand(cmd).get()
+    ()
+  }
+
   val exec = Executors.newCachedThreadPool()
   val ec = ExecutionContext.fromExecutorService(exec)
   val config = MetalsServerConfig.base.copy(

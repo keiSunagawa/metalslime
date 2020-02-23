@@ -8,6 +8,7 @@ trait MetalsServerAdapter {
   def didOpen(path: String, content: String): Unit
   def definition(path: String, line: Int, col: Int): List[RefFile]
   def close(): Unit
+  def compile(): Unit
 }
 
 object MetalsServerAdapter {

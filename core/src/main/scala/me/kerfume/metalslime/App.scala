@@ -25,7 +25,6 @@ object App {
           }
       }
 
-//      Thread.sleep(20000)
       val res = posList.map {
         case (loc, pos) =>
           // FIXME loadが毎回書いて微妙
@@ -39,27 +38,17 @@ object App {
           println(pos.namePos.startColumn)
 
           server.didOpen(loc.file, srcContent)
-          //Thread.sleep(600000)
-//          Thread.sleep(10000)
-          val r1 = server.definition(
+
+          server.compile()
+
+          server.definition(
             loc.file,
             pos.namePos.startLine,
             pos.namePos.startColumn
           )
-          println(r1)
-          Thread.sleep(1000)
-          val r2 = server.definition(
-            loc.file,
-            pos.namePos.startLine,
-            pos.namePos.startColumn
-          )
-          println(r2)
       }
 
-//      Thread.sleep(10000)
       println(res)
-
-      //    server.close()
 
       // posListから依存一覧の取得
       // didOpenリクエストの作成
