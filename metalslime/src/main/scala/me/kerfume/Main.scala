@@ -21,11 +21,15 @@ import cats.mtl.implicits._
 
 object Main {
   def main(args: Array[String]): Unit = {
-    val workspace = "/Users/kerfume/gits/Reminder/reminder-backend"
+//    val workspace = "/Users/kerfume/gits/Reminder/reminder-backend"
+    val workspace :: patchFile :: Nil = args.toList
 
     val server = new MetalsServer(workspace)
     App
-      .run[StateT[Reader[MetalsServerAdapter, *], App.State, *]](workspace)
+      .run[StateT[Reader[MetalsServerAdapter, *], App.State, *]](
+        workspace,
+        patchFile
+      )
       .runA(App.State())
       .run(server)
 

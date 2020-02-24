@@ -15,14 +15,14 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 
 object App {
-  def run[F[_]: Monad](workspace: String)(
+  def run[F[_]: Monad](workspace: String, patchFile: String)(
       implicit R: ApplicativeAsk[F, MetalsServerAdapter],
       S: MonadState[F, State]
   ): F[Unit] = {
     for {
       server <- R.ask
       _ = server.init()
-      locList = PatchLoader.load("./tets_patch.txt")
+      locList = PatchLoader.load(patchFile)
       posList = locList.flatMap { loc =>
         val path = s"${workspace}${loc.file}"
         DefGetter.getDefine(path, loc.lineRange).map { x =>

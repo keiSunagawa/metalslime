@@ -13,8 +13,9 @@ addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "1.4.0-RC1")
 ```shell
 $ cd <your git project>
 # create diff file.
-$ git diff --color=never -U0 --relative="<sbt project dir>" --no-index master <your branch> > diff.txt
+$ git diff --color=never -U0 --relative="<sbt project dir>" master <your branch> > diff.txt
 $ cd <sbt project root>
 $ sbt bloopInstall
-$ docker run TODO
+$ cd <metalslime root>
+$ sbt "metalslime/run <sbt project root> <diff file path>"
 ```

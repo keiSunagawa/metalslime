@@ -13,8 +13,7 @@ object GitPatchPaser extends RegexParsers {
   val gitArg: Parser[String] = "--git"
   val path: Parser[List[String]] = """/[a-zA-Z1-9-_.]*""".r.*
   val filePath: Parser[String] = """(a|b)""".r ~> path ^^ { p =>
-    // 先頭行はproject root
-    p.tail.mkString
+    p.mkString
   }
   val diffLine
       : Parser[String] = diff ~> whiteSpace ~> gitArg ~> whiteSpace ~> filePath ~> whiteSpace ~> filePath <~ break ^^ {
