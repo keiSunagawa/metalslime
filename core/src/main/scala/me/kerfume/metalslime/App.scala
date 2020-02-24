@@ -8,12 +8,11 @@ import Location._
 import cats.Monad
 import me.kerfume.metalslime.server.MetalsServerAdapter.RefFile
 import cats.mtl.{ApplicativeAsk, MonadState}
-//import cats.implicits._
 import cats.instances.list._
 import cats.syntax.traverse._
+import cats.syntax.foldable._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-//import cats.mtl.implicits._
 
 object App {
   case class State(
@@ -43,33 +42,35 @@ object App {
           val a = s"${workspace}${loc.file}"
           for {
             invDeps <- fetchInvDepF[F](a, pos)
-            _ <- invDeps.traverse { rf =>
-              S.modify(_.visited(rf.path.replaceAll("""file://""", "")))
-            }
           } yield invDeps
       }
-      _ <- changedFileInvDeps.flatTraverse { dep =>
-        val pathOnly = dep.path.replaceAll("""file://""", "")
-        for {
-          st <- S.get
-          res <- if (st.isVisited(pathOnly))
-            R.applicative.pure(List.empty[RefFile])
-          else
-            DefGetter.getTopLevelDefines(pathOnly).flatTraverse { pos =>
-              for {
-                invDeps <- fetchInvDepF[F](pathOnly, pos)
-                _ <- invDeps.traverse { rf =>
-                  S.modify(_.visited(rf.path.replaceAll("""file://""", "")))
-                }
-              } yield invDeps
-            }
-        } yield res
+      _ <- changedFileInvDeps.traverse_ { dep =>
+        rec[F](dep)
       }
       st <- S.get
     } yield {
       println(st.visitedFiles)
       ()
     }
+  }
+
+  def rec[F[_]: Monad](file: RefFile)(
+      implicit R: ApplicativeAsk[F, MetalsServerAdapter],
+      S: MonadState[F, State]
+  ): F[Unit] = {
+    val pathOnly = file.path.replaceAll("""file://""", "")
+    for {
+      st <- S.get
+      _ <- if (st.isVisited(pathOnly)) R.applicative.unit
+      else
+        DefGetter.getTopLevelDefines(pathOnly).traverse_ { pos =>
+          for {
+            invDeps <- fetchInvDepF[F](pathOnly, pos)
+            _ <- S.modify(_.visited(pathOnly))
+            _ <- invDeps.traverse_(rf => rec[F](rf))
+          } yield ()
+        }
+    } yield ()
   }
 
   def fetchInvDepF[F[_]: Monad](
