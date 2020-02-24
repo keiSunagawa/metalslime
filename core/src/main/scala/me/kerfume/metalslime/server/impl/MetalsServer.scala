@@ -50,7 +50,7 @@ class MetalsServer(val workspace: String) extends MetalsServerAdapter {
     val res = underliyng.definition(definition).get()
 
     res.asScala.map { r =>
-      RefFile(r.getUri())
+      RefFile(r.getUri().replaceAll("""file://""", ""))
     }.toList
   }
 

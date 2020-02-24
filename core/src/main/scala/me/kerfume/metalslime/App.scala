@@ -49,15 +49,14 @@ object App {
       implicit R: ApplicativeAsk[F, MetalsServerAdapter],
       S: MonadState[F, State]
   ): F[Unit] = {
-    val pathOnly = file.path.replaceAll("""file://""", "")
     for {
       st <- S.get
-      _ <- if (st.isVisited(pathOnly)) R.applicative.unit
+      _ <- if (st.isVisited(file.path)) R.applicative.unit
       else
-        DefGetter.getTopLevelDefines(pathOnly).traverse_ { pos =>
+        DefGetter.getTopLevelDefines(file.path).traverse_ { pos =>
           for {
-            invDeps <- fetchInvDep[F](pathOnly, pos)
-            _ <- S.modify(_.visited(pathOnly))
+            invDeps <- fetchInvDep[F](file.path, pos)
+            _ <- S.modify(_.visited(file.path))
             _ <- invDeps.traverse_(rf => rec[F](rf))
           } yield ()
         }
