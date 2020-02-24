@@ -15,15 +15,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 
 object App {
-  case class State(
-      visitedFiles: Set[String] = Set.empty
-  ) {
-    def visited(path: String): State = copy(
-      visitedFiles = visitedFiles + path
-    )
-    def isVisited(path: String): Boolean = visitedFiles(path)
-  }
-  def run2[F[_]: Monad](workspace: String)(
+  def run[F[_]: Monad](workspace: String)(
       implicit R: ApplicativeAsk[F, MetalsServerAdapter],
       S: MonadState[F, State]
   ): F[Unit] = {
@@ -34,14 +26,13 @@ object App {
       posList = locList.flatMap { loc =>
         val path = s"${workspace}${loc.file}"
         DefGetter.getDefine(path, loc.lineRange).map { x =>
-          loc -> x
+          path -> x
         }
       }
       changedFileInvDeps <- posList.flatTraverse {
-        case (loc, pos) =>
-          val a = s"${workspace}${loc.file}"
+        case (path, pos) =>
           for {
-            invDeps <- fetchInvDepF[F](a, pos)
+            invDeps <- fetchInvDep[F](path, pos)
           } yield invDeps
       }
       _ <- changedFileInvDeps.traverse_ { dep =>
@@ -54,7 +45,7 @@ object App {
     }
   }
 
-  def rec[F[_]: Monad](file: RefFile)(
+  private def rec[F[_]: Monad](file: RefFile)(
       implicit R: ApplicativeAsk[F, MetalsServerAdapter],
       S: MonadState[F, State]
   ): F[Unit] = {
@@ -65,7 +56,7 @@ object App {
       else
         DefGetter.getTopLevelDefines(pathOnly).traverse_ { pos =>
           for {
-            invDeps <- fetchInvDepF[F](pathOnly, pos)
+            invDeps <- fetchInvDep[F](pathOnly, pos)
             _ <- S.modify(_.visited(pathOnly))
             _ <- invDeps.traverse_(rf => rec[F](rf))
           } yield ()
@@ -73,7 +64,7 @@ object App {
     } yield ()
   }
 
-  def fetchInvDepF[F[_]: Monad](
+  private def fetchInvDep[F[_]: Monad](
       filePath: String,
       pos: ScalaMetaLineRange
   )(implicit R: ApplicativeAsk[F, MetalsServerAdapter]): F[List[RefFile]] =
@@ -84,8 +75,8 @@ object App {
         .mkString("\n")
 
       server.didOpen(filePath, srcContent)
-      println(filePath)
-      println(s"start: ${pos.namePos.startLine}, ${pos.namePos.startColumn}")
+//      println(filePath)
+//      println(s"start: ${pos.namePos.startLine}, ${pos.namePos.startColumn}")
 
       server.compile()
 
@@ -94,7 +85,16 @@ object App {
         pos.namePos.startLine,
         pos.namePos.startColumn
       )
-      println(res)
+      //println(res)
       res
     }
+
+  case class State(
+      visitedFiles: Set[String] = Set.empty
+  ) {
+    def visited(path: String): State = copy(
+      visitedFiles = visitedFiles + path
+    )
+    def isVisited(path: String): Boolean = visitedFiles(path)
+  }
 }

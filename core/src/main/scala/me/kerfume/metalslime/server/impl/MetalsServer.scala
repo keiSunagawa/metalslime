@@ -35,15 +35,6 @@ class MetalsServer(val workspace: String) extends MetalsServerAdapter {
     )
 
     underliyng.didOpen(didOpen).get()
-
-    // val hover = Definition.request(
-    //   workspace,
-    //   path,
-    //   PointLocation(6, 6)
-    // )
-
-    // println("send hover")
-    // val _ = underliyng.hover(hover).get()
   }
 
   def definition(
@@ -77,7 +68,7 @@ class MetalsServer(val workspace: String) extends MetalsServerAdapter {
   val exec = Executors.newCachedThreadPool()
   val ec = ExecutionContext.fromExecutorService(exec)
   val config = MetalsServerConfig.base.copy(
-    isExitOnShutdown = true
+    //isExitOnShutdown = true
   )
   val underliyng = new MetalsLanguageServer(
     ec,

@@ -25,7 +25,7 @@ object Main {
 
     val server = new MetalsServer(workspace)
     App
-      .run2[StateT[Reader[MetalsServerAdapter, *], App.State, *]](workspace)
+      .run[StateT[Reader[MetalsServerAdapter, *], App.State, *]](workspace)
       .runA(App.State())
       .run(server)
 
