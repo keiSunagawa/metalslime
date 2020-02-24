@@ -26,7 +26,8 @@ object Base {
 
   lazy val settings = Seq(
     scalaVersion := "2.12.10",
-    publish / skip := true
+    publish / skip := true,
+    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full)
   )
 
   lazy val strictScalacOptions = Seq(
