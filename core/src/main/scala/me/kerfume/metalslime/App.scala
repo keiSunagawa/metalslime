@@ -11,13 +11,13 @@ object App {
   def run(workspace: String): Reader[MetalsServerAdapter, Unit] =
     Reader { server =>
       // load pos list from patch file
-      val loader = new PatchLoader(workspace)
       val defGetter = new DefGetter(workspace)
 
       // launch server
       server.init()
 
-      val locList = loader.stub()
+      val locList = PatchLoader.load("./tets_patch.txt")
+      println(locList)
       val posList: List[(Location, ScalaMetaLineRange)] = locList.flatMap {
         loc =>
           defGetter.getDefine(loc).map { x =>
@@ -49,6 +49,8 @@ object App {
       }
 
       println(res)
+
+      server.close()
 
       // posListから依存一覧の取得
       // didOpenリクエストの作成
