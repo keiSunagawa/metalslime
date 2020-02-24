@@ -10,7 +10,8 @@ object Core {
       scalacOptions ++= Base.commonScalaOptions,
       libraryDependencies ++= Base.commonLibs ++ Seq(
         "org.scalameta" %% "metals" % "0.8.0",
-        "org.typelevel" %% "cats-effect" % "2.1.1"
+        "org.typelevel" %% "cats-effect" % "2.1.1",
+        "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2"
       )
     )
 }
