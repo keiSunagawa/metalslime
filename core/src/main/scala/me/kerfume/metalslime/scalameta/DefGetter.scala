@@ -3,15 +3,23 @@ package me.kerfume.metalslime.scalameta
 import me.kerfume.metalslime.models.Location
 import Location._
 import scala.meta._
+import me.kerfume.metalslime.models.LineRange
 
-class DefGetter(workspace: String) {
-  def getDefine(selector: Location): Option[ScalaMetaLineRange] = {
-    val path = s"${workspace}/${selector.file}"
+object DefGetter {
+  def getDefine(
+      path: String,
+      originRange: LineRange
+  ): Option[ScalaMetaLineRange] = {
     val tree = loadFile(path)
-    getMostInner(tree, selector)
+    getMostInner(tree, originRange)
   }
 
-  def loadFile(path: String): Source = {
+  def getTopLevelDefines(path: String): List[ScalaMetaLineRange] = {
+    val tree = loadFile(path)
+    getTopLevelDefines0(tree)
+  }
+
+  private def loadFile(path: String): Source = {
     val src = scala.io.Source
       .fromFile(path)
       .getLines()
@@ -20,9 +28,21 @@ class DefGetter(workspace: String) {
     vf.parse[Source].get
   }
 
-  def getMostInner(
+  private def getTopLevelDefines0(
+      tree: Tree
+  ): List[ScalaMetaLineRange] = {
+    tree.collect {
+      case d: Defn.Class =>
+        ScalaMetaLineRange(d.pos, d.name.pos)
+      case d: Defn.Trait =>
+        ScalaMetaLineRange(d.pos, d.name.pos)
+      case d: Defn.Object =>
+        ScalaMetaLineRange(d.pos, d.name.pos)
+    }
+  }
+  private def getMostInner(
       tree: Tree,
-      selector: Location
+      originRange: LineRange
   ): Option[ScalaMetaLineRange] = {
     var mostMatch: Option[ScalaMetaLineRange] = None
     tree.collect {
@@ -30,11 +50,11 @@ class DefGetter(workspace: String) {
         val range = ScalaMetaLineRange(d.pos, d.name.pos)
         mostMatch match {
           case None =>
-            if (range.isInner(selector.lineRange)) {
+            if (range.isInner(originRange)) {
               mostMatch = Some(range)
             }
           case Some(current) =>
-            if (range.isInner(selector.lineRange) && current.isInner(range)) {
+            if (range.isInner(originRange) && current.isInner(range)) {
               mostMatch = Some(range)
             }
         }
@@ -42,11 +62,11 @@ class DefGetter(workspace: String) {
         val range = ScalaMetaLineRange(d.pos, d.name.pos)
         mostMatch match {
           case None =>
-            if (range.isInner(selector.lineRange)) {
+            if (range.isInner(originRange)) {
               mostMatch = Some(range)
             }
           case Some(current) =>
-            if (range.isInner(selector.lineRange) && current.isInner(range)) {
+            if (range.isInner(originRange) && current.isInner(range)) {
               mostMatch = Some(range)
             }
         }
@@ -54,11 +74,11 @@ class DefGetter(workspace: String) {
         val range = ScalaMetaLineRange(d.pos, d.name.pos)
         mostMatch match {
           case None =>
-            if (range.isInner(selector.lineRange)) {
+            if (range.isInner(originRange)) {
               mostMatch = Some(range)
             }
           case Some(current) =>
-            if (range.isInner(selector.lineRange) && current.isInner(range)) {
+            if (range.isInner(originRange) && current.isInner(range)) {
               mostMatch = Some(range)
             }
         }
@@ -67,11 +87,11 @@ class DefGetter(workspace: String) {
         val range = ScalaMetaLineRange(d.pos, d.name.pos)
         mostMatch match {
           case None =>
-            if (range.isInner(selector.lineRange)) {
+            if (range.isInner(originRange)) {
               mostMatch = Some(range)
             }
           case Some(current) =>
-            if (range.isInner(selector.lineRange) && current.isInner(range)) {
+            if (range.isInner(originRange) && current.isInner(range)) {
               mostMatch = Some(range)
             }
         }

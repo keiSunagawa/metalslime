@@ -5,13 +5,12 @@ import scala.collection.JavaConverters._
 
 object Definition {
   def request(
-      workspace: String,
       path: String,
       loc: PointLocation
   ): TextDocumentPositionParams = {
     val td = new TextDocumentIdentifier()
     td.setUri(
-      s"file://${workspace}/${path}"
+      s"file://${path}"
     )
     val pos = new Position()
     pos.setLine(loc.line)

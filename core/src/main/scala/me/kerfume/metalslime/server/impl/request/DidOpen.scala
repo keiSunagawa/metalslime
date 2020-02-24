@@ -5,14 +5,14 @@ import scala.collection.JavaConverters._
 
 object DidOpen {
   def request(
-      workspace: String,
       path: String,
       content: String
   ): DidOpenTextDocumentParams = {
     val td = new DidOpenTextDocumentParams()
     val tdRow = new TextDocumentItem()
+    println(path)
     tdRow.setUri(
-      s"file://${workspace}/${path}"
+      s"file://${path}"
     )
     tdRow.setLanguageId("scala")
     tdRow.setVersion(0)

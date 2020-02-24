@@ -30,7 +30,6 @@ class MetalsServer(val workspace: String) extends MetalsServerAdapter {
 
   def didOpen(path: String, content: String): Unit = {
     val didOpen = DidOpen.request(
-      workspace,
       path,
       content
     )
@@ -53,7 +52,6 @@ class MetalsServer(val workspace: String) extends MetalsServerAdapter {
       col: Int
   ): List[RefFile] = {
     val definition = Definition.request(
-      workspace,
       path,
       PointLocation(line, col)
     )

@@ -6,55 +6,61 @@ import me.kerfume.metalslime.scalameta.DefGetter
 import me.kerfume.metalslime.server.MetalsServerAdapter
 import me.kerfume.metalslime.models.Location
 import Location._
+import me.kerfume.metalslime.server.MetalsServerAdapter.RefFile
+import cats.instances.list._
+import cats.syntax.traverse._
 
 object App {
+  // load pos list from patch file
+
   def run(workspace: String): Reader[MetalsServerAdapter, Unit] =
-    Reader { server =>
-      // load pos list from patch file
-      val defGetter = new DefGetter(workspace)
-
-      // launch server
-      server.init()
-
-      val locList = PatchLoader.load("./tets_patch.txt")
-      println(locList)
-      val posList: List[(Location, ScalaMetaLineRange)] = locList.flatMap {
-        loc =>
-          defGetter.getDefine(loc).map { x =>
-            loc -> x
-          }
+    for {
+      _ <- Reader[MetalsServerAdapter, Unit] { _.init() }
+      locList = PatchLoader.load("./tets_patch.txt")
+      posList = locList.flatMap { loc =>
+        val path = s"${workspace}${loc.file}"
+        println(path)
+        DefGetter.getDefine(path, loc.lineRange).map { x =>
+          loc -> x
+        }
       }
-
-      val res = posList.map {
+      res <- posList.traverse {
         case (loc, pos) =>
-          // FIXME loadが毎回書いて微妙
-          val srcContent = scala.io.Source
-            .fromFile(s"${workspace}/${loc.file}")
-            .getLines()
-            .mkString("\n")
-
-          println(loc.file)
-          println(pos.namePos.startLine)
-          println(pos.namePos.startColumn)
-
-          server.didOpen(loc.file, srcContent)
-
-          server.compile()
-
-          server.definition(
-            loc.file,
-            pos.namePos.startLine,
-            pos.namePos.startColumn
-          )
+          fetchInvDep(s"${workspace}${loc.file}", pos)
       }
+      res2 <- Reader[MetalsServerAdapter, Any] { server =>
+        for {
+          xs <- res
+          y <- xs
+        } yield {
+          val pathOnly = y.path.replaceAll("""file://""", "")
+          DefGetter.getTopLevelDefines(pathOnly).flatMap { pos =>
+            fetchInvDep(pathOnly, pos).run(server)
+          }
+        }
+      }
+      _ = println(res2)
+      _ <- Reader[MetalsServerAdapter, Unit] { _.close() }
+    } yield ()
 
-      println(res)
+  def fetchInvDep(
+      filePath: String,
+      pos: ScalaMetaLineRange
+  ): Reader[MetalsServerAdapter, List[RefFile]] = Reader { server =>
+    println(filePath)
+    val srcContent = scala.io.Source
+      .fromFile(filePath)
+      .getLines()
+      .mkString("\n")
 
-      server.close()
+    server.didOpen(filePath, srcContent)
 
-      // posListから依存一覧の取得
-      // didOpenリクエストの作成
-      // difinetionリクエストの作成
-      ()
-    }
+    server.compile()
+
+    server.definition(
+      filePath,
+      pos.namePos.startLine,
+      pos.namePos.startColumn
+    )
+  }
 }
