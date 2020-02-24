@@ -11,56 +11,69 @@ import cats.instances.list._
 import cats.syntax.traverse._
 
 object App {
-  // load pos list from patch file
-
-  def run(workspace: String): Reader[MetalsServerAdapter, Unit] =
+  def run(workspace: String): Reader[MetalsServerAdapter, Unit] = {
+    var visitedPaths: Set[String] = Set.empty
+    var targetFiles: Set[String] = Set.empty
+    val targetRegex = ".*server.*".r
     for {
       _ <- Reader[MetalsServerAdapter, Unit] { _.init() }
       locList = PatchLoader.load("./tets_patch.txt")
       posList = locList.flatMap { loc =>
         val path = s"${workspace}${loc.file}"
-        println(path)
         DefGetter.getDefine(path, loc.lineRange).map { x =>
           loc -> x
         }
       }
-      res <- posList.traverse {
+      changedFileInvDeps <- posList.flatTraverse {
         case (loc, pos) =>
-          fetchInvDep(s"${workspace}${loc.file}", pos)
-      }
-      res2 <- Reader[MetalsServerAdapter, Any] { server =>
-        for {
-          xs <- res
-          y <- xs
-        } yield {
-          val pathOnly = y.path.replaceAll("""file://""", "")
-          DefGetter.getTopLevelDefines(pathOnly).flatMap { pos =>
-            fetchInvDep(pathOnly, pos).run(server)
+          fetchInvDep(s"${workspace}${loc.file}", pos).map { invDeps =>
+            invDeps.foreach { rf =>
+              val pathOnly = rf.path.replaceAll("""file://""", "")
+              if (targetRegex.findFirstIn(pathOnly).nonEmpty) {
+                targetFiles += pathOnly
+              }
+            }
+            invDeps
           }
-        }
       }
-      _ = println(res2)
+      _ <- changedFileInvDeps.flatTraverse { dep =>
+        val pathOnly = dep.path.replaceAll("""file://""", "")
+        if (visitedPaths(pathOnly))
+          Reader[MetalsServerAdapter, List[RefFile]](_ => Nil)
+        else
+          DefGetter.getTopLevelDefines(pathOnly).flatTraverse { pos =>
+            fetchInvDep(pathOnly, pos).map { xs =>
+              visitedPaths += pathOnly
+              xs
+            }
+          }
+      }
+      _ = println(visitedPaths)
+      //_ = println(targetFiles)
       _ <- Reader[MetalsServerAdapter, Unit] { _.close() }
     } yield ()
-
+  }
   def fetchInvDep(
       filePath: String,
       pos: ScalaMetaLineRange
   ): Reader[MetalsServerAdapter, List[RefFile]] = Reader { server =>
-    println(filePath)
     val srcContent = scala.io.Source
       .fromFile(filePath)
       .getLines()
       .mkString("\n")
 
     server.didOpen(filePath, srcContent)
+    println(filePath)
+    println(s"start: ${pos.namePos.startLine}, ${pos.namePos.startColumn}")
 
     server.compile()
 
-    server.definition(
+    val res = server.definition(
       filePath,
       pos.namePos.startLine,
       pos.namePos.startColumn
     )
+    println(res)
+    res
   }
 }

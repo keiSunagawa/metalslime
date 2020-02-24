@@ -10,7 +10,6 @@ object DidOpen {
   ): DidOpenTextDocumentParams = {
     val td = new DidOpenTextDocumentParams()
     val tdRow = new TextDocumentItem()
-    println(path)
     tdRow.setUri(
       s"file://${path}"
     )
